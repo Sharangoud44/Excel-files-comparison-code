@@ -14,7 +14,7 @@
 <label>Upload File 2:</label>
 <input type="file" id="file2" accept=".xlsx,.xls"><br><br>
 
-<button onclick="compareExcel()">Compare Now</button>
+<button onclick="compareFiles()">Compare Now</button>
 
 <h3>Differences:</h3>
 <pre id="output" style="white-space: pre-wrap; background: #eee; padding: 10px;"></pre>
@@ -56,8 +56,8 @@ async function compareFiles() {
     // ---------------------------
     // 1️⃣ COLUMN COUNT
     // ---------------------------
-    output += `<b>Excel1 Columns:</b> ${col1.length}<br>`;
-    output += `<b>Excel2 Columns:</b> ${col2.length}<br><br>`;
+    output += `📌 <b>Excel 1 Column Count:</b> ${col1.length}\n`;
+    output += `📌 <b>Excel 2 Column Count:</b> ${col2.length}\n\n`;
 
     // ---------------------------
     // 2️⃣ COLUMN ORDER CHECK
@@ -74,30 +74,28 @@ async function compareFiles() {
     }
 
     if (mismatchList1.length === 0) {
-        output += `<b>Column Order:</b> MATCHING ✔️<br><br>`;
+        output += `✔️ <b>Column Order:</b> MATCHING\n\n`;
     } else {
-        output += `<b>Column Order:</b> MISMATCH ❌<br>`;
-        output += `<b>Excel1 →</b> ${mismatchList1.join(", ")}<br>`;
-        output += `<b>Excel2 →</b> ${mismatchList2.join(", ")}<br><br>`;
+        output += `❌ <b>Column Order MISMATCHED</b>\n`;
+        output += `<b>Excel 1:</b> ${mismatchList1.join(", ")}\n`;
+        output += `<b>Excel 2:</b> ${mismatchList2.join(", ")}\n\n`;
     }
 
     // ---------------------------
     // 3️⃣ ROW COUNT CHECK
     // ---------------------------
-    output += `<b>Excel1 Rows:</b> ${rows1}<br>`;
-    output += `<b>Excel2 Rows:</b> ${rows2}<br>`;
+    output += `📌 <b>Excel 1 Row Count:</b> ${rows1}\n`;
+    output += `📌 <b>Excel 2 Row Count:</b> ${rows2}\n`;
 
     if (rows1 === rows2) {
-        output += `<b>Row Count:</b> MATCHING ✔️<br>`;
+        output += `✔️ <b>Row Count:</b> MATCHING`;
     } else {
-        output += `<b>Row Count:</b> NOT MATCHING ❌<br>`;
+        output += `❌ <b>Row Count:</b> NOT MATCHING`;
     }
 
     document.getElementById("output").innerHTML = output;
 }
 </script>
-
-
 
 </body>
 </html>
