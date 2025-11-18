@@ -1,0 +1,62 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Excel Compare Tool</title>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
+</head>
+<body>
+
+<h2>Compare Two Excel Files</h2>
+
+<label>Upload File 1:</label>
+<input type="file" id="file1" accept=".xlsx,.xls"><br><br>
+
+<label>Upload File 2:</label>
+<input type="file" id="file2" accept=".xlsx,.xls"><br><br>
+
+<button onclick="compareExcel()">Compare Now</button>
+
+<h3>Differences:</h3>
+<pre id="output" style="white-space: pre-wrap; background: #eee; padding: 10px;"></pre>
+
+<script>
+function readExcel(file, callback) {
+    var reader = new FileReader();
+    reader.onload = function(e) {
+        var data = new Uint8Array(e.target.result);
+        var workbook = XLSX.read(data, {type: "array"});
+        var sheet = workbook.Sheets[workbook.SheetNames[0]];
+        callback(XLSX.utils.sheet_to_json(sheet, {header:1}));
+    };
+    reader.readAsArrayBuffer(file);
+}
+
+function compareExcel() {
+    var f1 = document.getElementById("file1").files[0];
+    var f2 = document.getElementById("file2").files[0];
+
+    if (!f1 || !f2) {
+        alert("Please upload both files.");
+        return;
+    }
+
+    readExcel(f1, function(data1) {
+        readExcel(f2, function(data2) {
+            let output = "";
+            for (let r = 0; r < Math.max(data1.length, data2.length); r++) {
+                for (let c = 0; c < Math.max(data1[r]?.length || 0, data2[r]?.length || 0); c++) {
+                    if ((data1[r]?.[c] || "") !== (data2[r]?.[c] || "")) {
+                        output += `Row ${r+1}, Col ${c+1}:\n`;
+                        output += `File1: ${data1[r]?.[c] || ""}\n`;
+                        output += `File2: ${data2[r]?.[c] || ""}\n\n`;
+                    }
+                }
+            }
+            document.getElementById("output").innerText = output || "No differences found.";
+        });
+    });
+}
+</script>
+
+</body>
+</html>
