@@ -27,67 +27,76 @@ function readExcel(file) {
             const data = new Uint8Array(e.target.result);
             const workbook = XLSX.read(data, { type: "array" });
             const sheet = workbook.Sheets[workbook.SheetNames[0]];
-            resolve(XLSX.utils.sheet_to_json(sheet, { header: 1 })); // returns rows as arrays
+            resolve(XLSX.utils.sheet_to_json(sheet, { header: 1 }));
         };
         reader.readAsArrayBuffer(file);
     });
 }
 
 async function compareFiles() {
-    const file1 = document.getElementById("file1").files[0];
-    const file2 = document.getElementById("file2").files[0];
+    const f1 = document.getElementById("file1").files[0];
+    const f2 = document.getElementById("file2").files[0];
 
-    if (!file1 || !file2) {
-        alert("Please upload both files!");
+    if (!f1 || !f2) {
+        alert("Upload both files!");
         return;
     }
 
-    let data1 = await readExcel(file1);
-    let data2 = await readExcel(file2);
+    let d1 = await readExcel(f1);
+    let d2 = await readExcel(f2);
 
-    let columns1 = data1[0];
-    let columns2 = data2[0];
+    let col1 = d1[0];
+    let col2 = d2[0];
+
+    let rows1 = d1.length - 1;
+    let rows2 = d2.length - 1;
 
     let output = "";
 
-    // -------------------------
-    // 1. COLUMN ORDER CHECK
-    // -------------------------
-    if (JSON.stringify(columns1) === JSON.stringify(columns2)) {
-        output += "<b>Column Order:</b> Matching ✔️<br><br>";
-    } else {
-        output += "<b>Column Order:</b> NOT Matching ❌<br>";
-        output += "<b>Mismatched Columns:</b><br><pre>";
+    // ---------------------------
+    // 1️⃣ COLUMN COUNT
+    // ---------------------------
+    output += `<b>Excel1 Columns:</b> ${col1.length}<br>`;
+    output += `<b>Excel2 Columns:</b> ${col2.length}<br><br>`;
 
-        let maxLength = Math.max(columns1.length, columns2.length);
+    // ---------------------------
+    // 2️⃣ COLUMN ORDER CHECK
+    // ---------------------------
+    let mismatchList1 = [];
+    let mismatchList2 = [];
 
-        for (let i = 0; i < maxLength; i++) {
-            if (columns1[i] !== columns2[i]) {
-                output += `Position ${i + 1}:  
-File1 → ${columns1[i] || "(blank)"}  
-File2 → ${columns2[i] || "(blank)"}\n\n`;
-            }
+    let max = Math.max(col1.length, col2.length);
+    for (let i = 0; i < max; i++) {
+        if (col1[i] !== col2[i]) {
+            mismatchList1.push(`[Col-${i + 1}] ${col1[i] || "(blank)"}`);
+            mismatchList2.push(`[Col-${i + 1}] ${col2[i] || "(blank)"}`);
         }
-        output += "</pre>";
     }
 
-    // -------------------------
-    // 2. ROW COUNT CHECK
-    // -------------------------
-    let rows1 = data1.length - 1; 
-    let rows2 = data2.length - 1;
+    if (mismatchList1.length === 0) {
+        output += `<b>Column Order:</b> MATCHING ✔️<br><br>`;
+    } else {
+        output += `<b>Column Order:</b> MISMATCH ❌<br>`;
+        output += `<b>Excel1 →</b> ${mismatchList1.join(", ")}<br>`;
+        output += `<b>Excel2 →</b> ${mismatchList2.join(", ")}<br><br>`;
+    }
+
+    // ---------------------------
+    // 3️⃣ ROW COUNT CHECK
+    // ---------------------------
+    output += `<b>Excel1 Rows:</b> ${rows1}<br>`;
+    output += `<b>Excel2 Rows:</b> ${rows2}<br>`;
 
     if (rows1 === rows2) {
-        output += "<b>Row Count:</b> Matching ✔️<br>";
+        output += `<b>Row Count:</b> MATCHING ✔️<br>`;
     } else {
-        output += "<b>Row Count:</b> NOT Matching ❌<br>";
-        output += `File1 Rows: ${rows1}<br>`;
-        output += `File2 Rows: ${rows2}<br>`;
+        output += `<b>Row Count:</b> NOT MATCHING ❌<br>`;
     }
 
     document.getElementById("output").innerHTML = output;
 }
 </script>
+
 
 
 </body>
