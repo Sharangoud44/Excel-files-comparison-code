@@ -20,43 +20,75 @@
 <pre id="output" style="white-space: pre-wrap; background: #eee; padding: 10px;"></pre>
 
 <script>
-function readExcel(file, callback) {
-    var reader = new FileReader();
-    reader.onload = function(e) {
-        var data = new Uint8Array(e.target.result);
-        var workbook = XLSX.read(data, {type: "array"});
-        var sheet = workbook.Sheets[workbook.SheetNames[0]];
-        callback(XLSX.utils.sheet_to_json(sheet, {header:1}));
-    };
-    reader.readAsArrayBuffer(file);
+function readExcel(file) {
+    return new Promise((resolve) => {
+        const reader = new FileReader();
+        reader.onload = (e) => {
+            const data = new Uint8Array(e.target.result);
+            const workbook = XLSX.read(data, { type: "array" });
+            const sheet = workbook.Sheets[workbook.SheetNames[0]];
+            resolve(XLSX.utils.sheet_to_json(sheet, { header: 1 })); // returns rows as arrays
+        };
+        reader.readAsArrayBuffer(file);
+    });
 }
 
-function compareExcel() {
-    var f1 = document.getElementById("file1").files[0];
-    var f2 = document.getElementById("file2").files[0];
+async function compareFiles() {
+    const file1 = document.getElementById("file1").files[0];
+    const file2 = document.getElementById("file2").files[0];
 
-    if (!f1 || !f2) {
-        alert("Please upload both files.");
+    if (!file1 || !file2) {
+        alert("Please upload both files!");
         return;
     }
 
-    readExcel(f1, function(data1) {
-        readExcel(f2, function(data2) {
-            let output = "";
-            for (let r = 0; r < Math.max(data1.length, data2.length); r++) {
-                for (let c = 0; c < Math.max(data1[r]?.length || 0, data2[r]?.length || 0); c++) {
-                    if ((data1[r]?.[c] || "") !== (data2[r]?.[c] || "")) {
-                        output += `Row ${r+1}, Col ${c+1}:\n`;
-                        output += `File1: ${data1[r]?.[c] || ""}\n`;
-                        output += `File2: ${data2[r]?.[c] || ""}\n\n`;
-                    }
-                }
+    let data1 = await readExcel(file1);
+    let data2 = await readExcel(file2);
+
+    let columns1 = data1[0];
+    let columns2 = data2[0];
+
+    let output = "";
+
+    // -------------------------
+    // 1. COLUMN ORDER CHECK
+    // -------------------------
+    if (JSON.stringify(columns1) === JSON.stringify(columns2)) {
+        output += "<b>Column Order:</b> Matching ✔️<br><br>";
+    } else {
+        output += "<b>Column Order:</b> NOT Matching ❌<br>";
+        output += "<b>Mismatched Columns:</b><br><pre>";
+
+        let maxLength = Math.max(columns1.length, columns2.length);
+
+        for (let i = 0; i < maxLength; i++) {
+            if (columns1[i] !== columns2[i]) {
+                output += `Position ${i + 1}:  
+File1 → ${columns1[i] || "(blank)"}  
+File2 → ${columns2[i] || "(blank)"}\n\n`;
             }
-            document.getElementById("output").innerText = output || "No differences found.";
-        });
-    });
+        }
+        output += "</pre>";
+    }
+
+    // -------------------------
+    // 2. ROW COUNT CHECK
+    // -------------------------
+    let rows1 = data1.length - 1; 
+    let rows2 = data2.length - 1;
+
+    if (rows1 === rows2) {
+        output += "<b>Row Count:</b> Matching ✔️<br>";
+    } else {
+        output += "<b>Row Count:</b> NOT Matching ❌<br>";
+        output += `File1 Rows: ${rows1}<br>`;
+        output += `File2 Rows: ${rows2}<br>`;
+    }
+
+    document.getElementById("output").innerHTML = output;
 }
 </script>
+
 
 </body>
 </html>
