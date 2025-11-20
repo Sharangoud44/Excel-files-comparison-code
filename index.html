@@ -1,101 +1,154 @@
 <!DOCTYPE html>
 <html>
 <head>
-    <title>Excel Compare Tool</title>
+    <title>Excel Comparison Tool</title>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
 </head>
-<body>
 
-<h2>Compare Two Excel Files</h2>
+<body style="font-family: Arial; padding: 20px;">
+    <h2>Excel Comparison Tool</h2>
 
-<label>Upload File 1:</label>
-<input type="file" id="file1" accept=".xlsx,.xls"><br><br>
+    <input type="file" id="file1"><br><br>
+    <input type="file" id="file2"><br><br>
 
-<label>Upload File 2:</label>
-<input type="file" id="file2" accept=".xlsx,.xls"><br><br>
+    <button onclick="compareExcel()">Compare</button>
 
-<button onclick="compareFiles()">Compare Now</button>
+    <pre id="output" style="white-space: pre-wrap; background: #eee; padding: 15px; margin-top: 20px;"></pre>
 
-<h3>Differences:</h3>
-<pre id="output" style="white-space: pre-wrap; background: #eee; padding: 10px;"></pre>
+    <script>
 
-<script>
-function readExcel(file) {
-    return new Promise((resolve) => {
-        const reader = new FileReader();
-        reader.onload = (e) => {
-            const data = new Uint8Array(e.target.result);
-            const workbook = XLSX.read(data, { type: "array" });
-            const sheet = workbook.Sheets[workbook.SheetNames[0]];
-            resolve(XLSX.utils.sheet_to_json(sheet, { header: 1 }));
-        };
-        reader.readAsArrayBuffer(file);
-    });
+function readExcel(file, callback) {
+    let reader = new FileReader();
+    reader.onload = function (e) {
+        let data = new Uint8Array(e.target.result);
+        let workbook = XLSX.read(data, { type: "array" });
+        let sheet = workbook.Sheets[workbook.SheetNames[0]];
+        let json = XLSX.utils.sheet_to_json(sheet, { header: 1 });
+        callback(json);
+    };
+    reader.readAsArrayBuffer(file);
 }
 
-async function compareFiles() {
-    const f1 = document.getElementById("file1").files[0];
-    const f2 = document.getElementById("file2").files[0];
+function isNumberLike(value) {
+    if (value === null || value === undefined) return false;
+    if (typeof value === "number") return true;
+    if (typeof value !== "string") return false;
+    return /^[₹$]?[0-9,\.%]+$/.test(value.trim());
+}
 
-    if (!f1 || !f2) {
-        alert("Upload both files!");
+function extractNumberFormat(value) {
+    let v = value.toString().trim();
+
+    return {
+        hasComma: v.includes(","),
+        hasCurrency: v.includes("₹") || v.includes("$"),
+        decimalPlaces: v.includes(".") ? v.split(".")[1].length : 0,
+        isPercent: v.endsWith("%")
+    };
+}
+
+function compareExcel() {
+    let file1 = document.getElementById("file1").files[0];
+    let file2 = document.getElementById("file2").files[0];
+
+    if (!file1 || !file2) {
+        alert("Please upload both Excel files");
         return;
     }
 
-    let d1 = await readExcel(f1);
-    let d2 = await readExcel(f2);
+    readExcel(file1, function (excel1) {
+        readExcel(file2, function (excel2) {
 
-    let col1 = d1[0];
-    let col2 = d2[0];
+            let output = "";
 
-    let rows1 = d1.length - 1;
-    let rows2 = d2.length - 1;
+            // -----------------------------------------
+            // 1) COLUMN COUNT
+            // -----------------------------------------
+            let colCount1 = excel1[0].length;
+            let colCount2 = excel2[0].length;
 
-    let output = "";
+            output += `1) 📌 Excel 1 Column Count: ${colCount1}\n`;
+            output += `   📌 Excel 2 Column Count: ${colCount2}\n\n`;
 
-    // ---------------------------
-    // 1️⃣ COLUMN COUNT
-    // ---------------------------
-    output += `📌 <b>Excel 1 Column Count:</b> ${col1.length}\n`;
-    output += `📌 <b>Excel 2 Column Count:</b> ${col2.length}\n\n`;
+            // -----------------------------------------
+            // 2) COLUMN ORDER CHECK
+            // -----------------------------------------
+            let mismatchFound = false;
 
-    // ---------------------------
-    // 2️⃣ COLUMN ORDER CHECK
-    // ---------------------------
-    let mismatchList1 = [];
-    let mismatchList2 = [];
+            for (let i = 0; i < Math.max(colCount1, colCount2); i++) {
+                if (excel1[0][i] !== excel2[0][i]) {
+                    mismatchFound = true;
 
-    let max = Math.max(col1.length, col2.length);
-    for (let i = 0; i < max; i++) {
-        if (col1[i] !== col2[i]) {
-            mismatchList1.push(`[Col-${i + 1}] ${col1[i] || "(blank)"}`);
-            mismatchList2.push(`[Col-${i + 1}] ${col2[i] || "(blank)"}`);
-        }
-    }
+                    output += `2) ❌ Column Order MISMATCHED\n`;
+                    output += `   Excel 1: [Col-${i + 1}] ${excel1[0][i]}\n`;
+                    output += `   Excel 2: [Col-${i + 1}] ${excel2[0][i]}\n\n`;
+                    break;
+                }
+            }
 
-    if (mismatchList1.length === 0) {
-        output += `✔️ <b>Column Order:</b> MATCHING\n\n`;
-    } else {
-        output += `❌ <b>Column Order MISMATCHED</b>\n`;
-        output += `<b>Excel 1:</b> ${mismatchList1.join(", ")}\n`;
-        output += `<b>Excel 2:</b> ${mismatchList2.join(", ")}\n\n`;
-    }
+            if (!mismatchFound) {
+                output += `2) ✔️ Column Order: MATCHING\n\n`;
+            }
 
-    // ---------------------------
-    // 3️⃣ ROW COUNT CHECK
-    // ---------------------------
-    output += `📌 <b>Excel 1 Row Count:</b> ${rows1}\n`;
-    output += `📌 <b>Excel 2 Row Count:</b> ${rows2}\n`;
+            // -----------------------------------------
+            // 3) ROW COUNT
+            // -----------------------------------------
+            let rowCount1 = excel1.length - 1;
+            let rowCount2 = excel2.length - 1;
 
-    if (rows1 === rows2) {
-        output += `✔️ <b>Row Count:</b> MATCHING`;
-    } else {
-        output += `❌ <b>Row Count:</b> NOT MATCHING`;
-    }
+            output += `3) 📌 Excel 1 Row Count: ${rowCount1}\n`;
+            output += `   📌 Excel 2 Row Count: ${rowCount2}\n`;
 
-    document.getElementById("output").innerHTML = output;
+            if (rowCount1 === rowCount2) {
+                output += `   ✔️ Row Count: MATCHING\n\n`;
+            } else {
+                output += `   ❌ Row Count: NOT MATCHING\n\n`;
+            }
+
+            // -----------------------------------------
+            // 4) NUMBER FORMAT CHECK (NEW)
+            // -----------------------------------------
+            output += `4) 🔍 Number Format Check:\n`;
+
+            let formatMismatchFound = false;
+
+            for (let col = 0; col < excel1[0].length; col++) {
+
+                let sample1 = excel1[1]?.[col];
+                let sample2 = excel2[1]?.[col];
+
+                if (!isNumberLike(sample1) || !isNumberLike(sample2)) continue;
+
+                let f1 = extractNumberFormat(sample1);
+                let f2 = extractNumberFormat(sample2);
+
+                if (
+                    f1.hasComma !== f2.hasComma ||
+                    f1.hasCurrency !== f2.hasCurrency ||
+                    f1.decimalPlaces !== f2.decimalPlaces ||
+                    f1.isPercent !== f2.isPercent
+                ) {
+                    formatMismatchFound = true;
+
+                    output += `   ❌ Column: ${excel1[0][col]}\n`;
+                    output += `      Excel1 Example: ${sample1}\n`;
+                    output += `      Excel2 Example: ${sample2}\n\n`;
+                }
+            }
+
+            if (!formatMismatchFound) {
+                output += `   ✔️ Number Formats: MATCHING\n\n`;
+            }
+
+            // -----------------------------------------
+            // OUTPUT TO SCREEN
+            // -----------------------------------------
+            document.getElementById("output").textContent = output;
+        });
+    });
 }
-</script>
+
+    </script>
 
 </body>
 </html>
