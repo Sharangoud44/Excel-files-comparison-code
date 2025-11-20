@@ -71,55 +71,26 @@ function containsLetters(s) {
 
 /* NEW: Prefer first row if it looks like header (>=2 textual cells) */
 function detectHeaderRowPreferFirst(sheetArr) {
-    // if first row exists and has >=2 textual cells, take it
-    if (sheetArr.length > 0) {
-        const row0 = sheetArr[0] || [];
-        let textCount0 = 0, nonEmpty0 = 0;
-        for (let c = 0; c < row0.length; c++) {
-            const cell = row0[c];
-            if (cell === undefined || cell === null) continue;
-            const s = String(cell).trim();
-            if (s === "") continue;
-            nonEmpty0++;
-            if (containsLetters(s)) textCount0++;
-            else if (!looksNumeric(s)) textCount0++; // treat non-numeric strings as text
-        }
-        if (textCount0 >= 2) {
-            return { header: row0.map(c => c === undefined ? "" : String(c).trim()), headerIndex: 0 };
-        }
-    }
-
-    // fallback to robust detection (previous logic)
-    let fallbackIndex = -1;
+    // NEW SIMPLE HEADER DETECTION:
+    // Pick the first row that has ANY alphabetic character (A-Z)
     for (let i = 0; i < sheetArr.length; i++) {
         const row = sheetArr[i] || [];
-        const nonEmpty = row.filter(c => c !== null && c !== undefined && String(c).trim() !== "");
-        if (nonEmpty.length === 0) continue;
-        if (fallbackIndex === -1 && nonEmpty.length >= 2) fallbackIndex = i;
-
-        let textCount = 0, numCount = 0;
         for (let c = 0; c < row.length; c++) {
             const cell = row[c];
-            if (cell === undefined || cell === null) continue;
-            const s = String(cell).trim();
-            if (s === "") continue;
-            if (containsLetters(s)) textCount++;
-            else if (looksNumeric(s)) numCount++;
-            else textCount++;
-        }
-        if (textCount >= 2 && textCount >= numCount) {
-            return { header: row.map(c => c === undefined ? "" : String(c).trim()), headerIndex: i };
+            if (cell && /[A-Za-z]/.test(String(cell))) {
+                return {
+                    header: row.map(x => x === undefined ? "" : String(x).trim()),
+                    headerIndex: i
+                };
+            }
         }
     }
 
-    if (fallbackIndex !== -1) {
-        const fallback = (sheetArr[fallbackIndex] || []).map(c => c === undefined ? "" : String(c).trim());
-        return { header: fallback, headerIndex: fallbackIndex };
-    }
-
-    const final = (sheetArr[0] || []).map(c => c === undefined ? "" : String(c).trim());
-    return { header: final, headerIndex: 0 };
+    // fallback: treat row 0 as header
+    const fallback = (sheetArr[0] || []).map(x => x === undefined ? "" : String(x).trim());
+    return { header: fallback, headerIndex: 0 };
 }
+
 
 function isNumberLike(val) {
     if (val === null || val === undefined) return false;
