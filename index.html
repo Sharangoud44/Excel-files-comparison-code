@@ -1,256 +1,320 @@
 <!DOCTYPE html>
 <html>
 <head>
-    <meta charset="utf-8" />
-    <title>Excel Comparison Tool — Prefer First Row Header</title>
-    <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
-    <style>
-        body { font-family: Calibri, Arial, sans-serif; background: #f5f7fb; padding: 24px; }
-        h2 { margin-bottom: 12px; color: #0b3d91; }
-        input[type="file"] { margin-right: 8px; }
-        button { padding: 8px 14px; background: #0b63ff; color: #fff; border: none; border-radius: 4px; cursor: pointer; }
-        button:hover { background:#054ec4; }
+  <meta charset="utf-8" />
+  <title>Excel Compare — Excel Green</title>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
+  <style>
+    :root{
+      --green-1:#eaf8ed;
+      --green-2:#d2f0d6;
+      --green-3:#9bd48f;
+      --muted:#6b7280;
+      --box-border:#cfe8ce;
+      --card-bg:#ffffff;
+      --accent:#0b9a3b;
+      --danger:#c92b2b;
+    }
+    body{
+      font-family: "Segoe UI", Tahoma, Geneva, Verdana, sans-serif;
+      background:#f3f7f4;
+      padding:24px;
+      color:#0b3d2f;
+    }
+    h1{ color:var(--accent); margin:0 0 12px 0; }
+    .controls{ margin-bottom:12px; display:flex; gap:12px; align-items:center; flex-wrap:wrap; }
+    input[type=file]{ padding:6px; }
+    button{
+      background:var(--accent); color:#fff; border:none; padding:8px 14px; border-radius:6px; cursor:pointer;
+      box-shadow:0 2px 0 rgba(11,154,59,0.15);
+    }
+    button:hover{ filter:brightness(.95); }
 
-        .excel-box { background: #fff; border: 1px solid #d6dde8; border-radius: 6px; margin-top: 18px; overflow: hidden; }
-        .excel-header { background: linear-gradient(#dbe9ff, #cfe2ff); padding: 10px 14px; border-bottom: 1px solid #b9d0ff; font-weight: 700; color:#08306b; }
-        .excel-row { padding: 10px 14px; border-bottom: 1px solid #f0f4f9; color:#111; }
-        .excel-row.small { padding: 6px 14px; color:#333; font-size: 14px; }
-        .icon { margin-right: 8px; }
-        .ok { color: #0a8a00; font-weight: 600; }
-        .fail { color: #c92b2b; font-weight: 600; }
-        .muted { color: #666; }
-        .code { font-family: Consolas, monospace; background:#f7f9fc; padding:6px 8px; border-radius:4px; display:inline-block; }
-        .cols { margin-top:8px; font-size: 14px; }
-    </style>
+    /* Card */
+    .card{ background:var(--card-bg); border:1px solid var(--box-border); border-radius:8px; overflow:hidden; margin-top:18px; }
+    .card-header{ background:linear-gradient(180deg,var(--green-1),var(--green-2)); padding:10px 14px; font-weight:700; color: #06411f; border-bottom:1px solid #bfe6b8;}
+    .card-row{ padding:10px 14px; border-bottom:1px solid #f1f6f1; display:flex; gap:12px; align-items:flex-start; }
+    .card-row.small{ padding:8px 14px; font-size:14px; color:var(--muted); }
+    .badge-ok{ color: #0a8030; font-weight:700; }
+    .badge-bad{ color: var(--danger); font-weight:700; }
+    .mono{ font-family: Consolas, "Courier New", monospace; background:#f7faf7; padding:4px 6px; border-radius:4px; }
+    .cols{ font-size:13px; color:#123a20; }
+    .muted{ color:var(--muted); }
+    .note{ font-size:13px; color:var(--muted); margin-top:8px; padding:0 14px 14px 14px; }
+
+    /* responsive */
+    @media (max-width:700px){ .controls{ flex-direction:column; align-items:stretch; } }
+  </style>
 </head>
 <body>
-    <h2>Excel Comparison Tool — Prefer First Row Header</h2>
+  <h1>Excel Compare — Excel Green</h1>
 
-    <input type="file" id="file1" accept=".xlsx,.xls,.csv">
-    <label class="muted">Excel 1</label>
-    <br><br>
-    <input type="file" id="file2" accept=".xlsx,.xls,.csv">
-    <label class="muted">Excel 2</label>
-    <br><br>
-    <button onclick="compareExcel()">Compare</button>
+  <div class="controls">
+    <div>
+      <input id="file1" type="file" accept=".xlsx,.xls,.csv">
+      <div class="muted" style="font-size:13px">Excel 1</div>
+    </div>
 
-    <div id="result"></div>
+    <div>
+      <input id="file2" type="file" accept=".xlsx,.xls,.csv">
+      <div class="muted" style="font-size:13px">Excel 2</div>
+    </div>
+
+    <div style="display:flex; align-items:center;">
+      <button onclick="compareAll()">Compare Now</button>
+    </div>
+  </div>
+
+  <div id="out"></div>
 
 <script>
-/* ---------- Helpers ---------- */
-function readExcelPromise(file) {
-    return new Promise((resolve, reject) => {
-        const reader = new FileReader();
-        reader.onload = (e) => {
-            try {
-                const data = new Uint8Array(e.target.result);
-                const wb = XLSX.read(data, { type: "array" });
-                const sheet = wb.Sheets[wb.SheetNames[0]]; // FIRST SHEET ONLY
-                const arr = XLSX.utils.sheet_to_json(sheet, { header: 1, raw: false });
-                resolve(arr);
-            } catch (err) {
-                reject(err);
-            }
-        };
-        reader.onerror = reject;
-        reader.readAsArrayBuffer(file);
-    });
-}
-
-function looksNumeric(s) {
-    if (s === null || s === undefined) return false;
-    s = String(s).trim();
-    if (s === "") return false;
-    return /^[-+]?[$₹€£]?\d{1,3}(?:[\d,]*\d)?(?:\.\d+)?%?$/.test(s) || /^[-+]?[$₹€£]?\d+(?:\.\d+)?%?$/.test(s);
-}
-
-function containsLetters(s) {
-    if (s === null || s === undefined) return false;
-    return /[A-Za-z]/.test(String(s));
-}
-
-/* NEW: Prefer first row if it looks like header (>=2 textual cells) */
-function detectHeaderRowPreferFirst(sheetArr) {
-    // NEW SIMPLE HEADER DETECTION:
-    // Pick the first row that has ANY alphabetic character (A-Z)
-    for (let i = 0; i < sheetArr.length; i++) {
-        const row = sheetArr[i] || [];
-        for (let c = 0; c < row.length; c++) {
-            const cell = row[c];
-            if (cell && /[A-Za-z]/.test(String(cell))) {
-                return {
-                    header: row.map(x => x === undefined ? "" : String(x).trim()),
-                    headerIndex: i
-                };
-            }
-        }
-    }
-
-    // fallback: treat row 0 as header
-    const fallback = (sheetArr[0] || []).map(x => x === undefined ? "" : String(x).trim());
-    return { header: fallback, headerIndex: 0 };
-}
-
-
-function isNumberLike(val) {
-    if (val === null || val === undefined) return false;
-    if (typeof val === "number") return true;
-    const s = String(val).trim();
-    if (s === "") return false;
-    return looksNumeric(s);
-}
-
-function extractNumFormat(val) {
-    const s = String(val || "").trim();
-    return {
-        hasComma: s.indexOf(",") !== -1,
-        currency: (s.match(/[$₹€£]/) || [null])[0],
-        decimals: s.includes(".") ? s.split(".")[1].replace(/[^0-9]/g,"").length : 0,
-        isPercent: s.endsWith("%")
+/* -------------------------
+   Utilities & Excel read
+   ------------------------- */
+function readFileToArray(file){
+  return new Promise((resolve, reject) => {
+    const fr = new FileReader();
+    fr.onload = (e) => {
+      try {
+        const data = new Uint8Array(e.target.result);
+        const wb = XLSX.read(data, { type: "array" });
+        const sheet = wb.Sheets[wb.SheetNames[0]]; // first sheet only
+        const arr = XLSX.utils.sheet_to_json(sheet, { header: 1, raw: false }); // arrays of rows
+        resolve(arr);
+      } catch(err){ reject(err); }
     };
+    fr.onerror = reject;
+    fr.readAsArrayBuffer(file);
+  });
 }
 
-function sampleColumnValue(sheetArr, headerIndex, colIndex) {
-    for (let r = headerIndex + 1; r < sheetArr.length; r++) {
-        const row = sheetArr[r] || [];
-        const cell = row[colIndex];
-        if (cell !== undefined && cell !== null && String(cell).trim() !== "") return String(cell).trim();
-    }
-    return null;
+/* detect text and numeric helpers */
+function containsLetters(s){
+  if(s===null || s===undefined) return false;
+  return /[A-Za-z\u00C0-\u024F]/.test(String(s));
+}
+function looksNumeric(s){
+  if(s===null || s===undefined) return false;
+  s = String(s).trim();
+  if(s==="") return false;
+  // numbers with optional currency, commas, percent
+  return /^[-+]?[$₹€£]?\d{1,3}(?:[\d,]*\d)?(?:\.\d+)?%?$/.test(s) || /^[-+]?[$₹€£]?\d+(?:\.\d+)?%?$/.test(s);
 }
 
-/* ---------- Main compare function ---------- */
-async function compareExcel() {
-    const file1 = document.getElementById("file1").files[0];
-    const file2 = document.getElementById("file2").files[0];
-    const resultDiv = document.getElementById("result");
-    resultDiv.innerHTML = "";
+/* Robust header detection:
+   1) If first row has >=2 textual cells -> use first row
+   2) Otherwise scan rows: prefer first row where textCount>=2 AND textCount>=numCount
+   3) If none found, pick first row that contains any letters
+   4) fallback to first non-empty row or row 0
+*/
+function detectHeaderRow(sheetArr){
+  // helper to count stats
+  function statsForRow(row){
+    let textCount=0, numCount=0, nonEmpty=0;
+    for(let c=0;c<row.length;c++){
+      const v = row[c];
+      if(v===undefined || v===null || String(v).trim()==="") continue;
+      nonEmpty++;
+      if(containsLetters(v)) textCount++;
+      else if(looksNumeric(v)) numCount++;
+      else textCount++;
+    }
+    return { textCount, numCount, nonEmpty };
+  }
 
-    if (!file1 || !file2) {
-        alert("Please upload both Excel files.");
-        return;
+  if(!sheetArr || sheetArr.length===0) return {header:[], index:0};
+
+  // 1) first row check
+  const row0 = sheetArr[0] || [];
+  const s0 = statsForRow(row0);
+  if(s0.textCount >= 2) return { header: row0.map(x=> x===undefined? "": String(x).trim()), index: 0 };
+
+  // 2) scan for a good header row
+  let fallbackAnyLetters = -1;
+  let firstReasonable = -1;
+  for(let i=0;i<sheetArr.length;i++){
+    const row = sheetArr[i] || [];
+    const s = statsForRow(row);
+    if(firstReasonable===-1 && s.nonEmpty >= 2) firstReasonable = i;
+    if(s.textCount >= 2 && s.textCount >= s.numCount){
+      return { header: row.map(x=> x===undefined? "": String(x).trim()), index: i };
+    }
+    // remember first row that has any letters
+    if(fallbackAnyLetters===-1){
+      for(let c=0;c<row.length;c++){
+        if(containsLetters(row[c])) { fallbackAnyLetters = i; break; }
+      }
+    }
+  }
+
+  if(fallbackAnyLetters !== -1) {
+    const row = sheetArr[fallbackAnyLetters] || [];
+    return { header: row.map(x=> x===undefined? "": String(x).trim()), index: fallbackAnyLetters };
+  }
+
+  if(firstReasonable !== -1){
+    const row = sheetArr[firstReasonable] || [];
+    return { header: row.map(x=> x===undefined? "": String(x).trim()), index: firstReasonable };
+  }
+
+  // fallback
+  const row = sheetArr[0] || [];
+  return { header: row.map(x=> x===undefined? "": String(x).trim()), index: 0 };
+}
+
+/* sample first non-empty cell under header */
+function sampleColumn(sheetArr, headerIndex, colIdx){
+  for(let r = headerIndex + 1; r < sheetArr.length; r++){
+    const v = sheetArr[r] ? sheetArr[r][colIdx] : undefined;
+    if(v !== undefined && v !== null && String(v).trim() !== "") return String(v).trim();
+  }
+  return null;
+}
+
+function extractNumFormat(val){
+  const s = String(val || "").trim();
+  return {
+    hasComma: s.indexOf(",") !== -1,
+    currency: (s.match(/[$₹€£]/) || [null])[0],
+    decimals: s.includes(".") ? s.split(".")[1].replace(/[^0-9]/g,"").length : 0,
+    isPercent: s.endsWith("%")
+  };
+}
+
+/* -------------------------
+   Build UI boxes (HTML)
+   ------------------------- */
+function makeCard(title, rowsHtml){
+  return `<div class="card">
+            <div class="card-header">${title}</div>
+            ${rowsHtml}
+          </div>`;
+}
+
+function makeRow(html, small=false){
+  return `<div class="card-row ${small? 'small':''}">${html}</div>`;
+}
+
+/* -------------------------
+   Main compare function
+   ------------------------- */
+async function compareAll(){
+  const f1 = document.getElementById('file1').files[0];
+  const f2 = document.getElementById('file2').files[0];
+  const out = document.getElementById('out');
+  out.innerHTML = '';
+
+  if(!f1 || !f2){
+    alert('Please upload both Excel files.');
+    return;
+  }
+
+  try{
+    const [arr1, arr2] = await Promise.all([readFileToArray(f1), readFileToArray(f2)]);
+    const h1 = detectHeaderRow(arr1);
+    const h2 = detectHeaderRow(arr2);
+
+    const head1 = h1.header || [];
+    const head2 = h2.header || [];
+    const idx1 = h1.index;
+    const idx2 = h2.index;
+    const cols = Math.max(head1.length, head2.length);
+    const rowsAfter1 = Math.max(0, arr1.length - (idx1 + 1));
+    const rowsAfter2 = Math.max(0, arr2.length - (idx2 + 1));
+
+    // 1) Column Count card
+    let html1 = '';
+    html1 += makeRow(`<span>📌</span> Excel 1 Column Count: <span class="mono">${head1.length}</span>`);
+    html1 += makeRow(`<span>📌</span> Excel 2 Column Count: <span class="mono">${head2.length}</span>`);
+    html1 += makeRow(`<span class="muted">Detected header row: Excel1 → ${idx1+1}, Excel2 → ${idx2+1}</span>`, true);
+    out.innerHTML += makeCard('1) Column Count', html1);
+
+    // 2) Column Order card - position wise
+    let mismatch = [];
+    for(let c=0;c<cols;c++){
+      const a = head1[c] === undefined ? "" : head1[c];
+      const b = head2[c] === undefined ? "" : head2[c];
+      if(a !== b){
+        mismatch.push({pos:c+1, a, b});
+      }
     }
 
-    try {
-        const [arr1, arr2] = await Promise.all([readExcelPromise(file1), readExcelPromise(file2)]);
-
-        // use the new prefer-first-row detection
-        const h1 = detectHeaderRowPreferFirst(arr1);
-        const h2 = detectHeaderRowPreferFirst(arr2);
-
-        const header1 = h1.header; const headerIdx1 = h1.headerIndex;
-        const header2 = h2.header; const headerIdx2 = h2.headerIndex;
-
-        const rowCount1 = Math.max(0, arr1.length - (headerIdx1 + 1));
-        const rowCount2 = Math.max(0, arr2.length - (headerIdx2 + 1));
-
-        let html = "";
-
-        // 1) Column Count
-        html += `<div class="excel-box">
-                    <div class="excel-header">1) Column Count</div>
-                    <div class="excel-row small"><span class="icon">📌</span>Excel 1 Column Count: <span class="code">${header1.length}</span></div>
-                    <div class="excel-row small"><span class="icon">📌</span>Excel 2 Column Count: <span class="code">${header2.length}</span></div>
-                    <div class="excel-row small muted">Detected header row: Excel1 → ${headerIdx1+1}, Excel2 → ${headerIdx2+1}</div>
-                 </div>`;
-
-        // 2) Column Order check (position wise)
-        const maxCols = Math.max(header1.length, header2.length);
-        let mismatchPos = [];
-        for (let c = 0; c < maxCols; c++) {
-            const a = header1[c] === undefined ? "" : header1[c];
-            const b = header2[c] === undefined ? "" : header2[c];
-            if (a !== b) mismatchPos.push({ pos: c+1, a, b });
-        }
-
-        html += `<div class="excel-box"><div class="excel-header">2) Column Order</div>`;
-        if (mismatchPos.length === 0) {
-            html += `<div class="excel-row ok"><span class="icon">✔️</span>Column Order: MATCHING</div>`;
-        } else {
-            html += `<div class="excel-row fail"><span class="icon">❌</span>Column Order MISMATCHED</div>`;
-            html += `<div class="excel-row small"><b>Differences (position-wise):</b></div>`;
-            mismatchPos.forEach(m => {
-                html += `<div class="excel-row small"><b>[Col-${m.pos}]</b> Excel1 → <span class="code">${m.a || "(blank)"}</span>  |  Excel2 → <span class="code">${m.b || "(blank)"}</span></div>`;
-            });
-
-            // Show mapping where header names from Excel1 exist in Excel2
-            const map2 = {};
-            header2.forEach((nm, idx) => { if (nm) map2[nm] = (map2[nm] || []).concat(idx+1); });
-            html += `<div class="excel-row small muted">Note: For Excel1 headers that differ by position, below shows where that header name appears (if anywhere) in Excel2.</div>`;
-            mismatchPos.forEach(m => {
-                const hname = m.a || "";
-                const found = (map2[hname] || []).length ? map2[hname].join(", ") : "(not present)";
-                html += `<div class="excel-row small">Excel1 [Col-${m.pos}] <span class="code">${hname}</span> → Excel2 positions: ${found}</div>`;
-            });
-        }
-        html += `</div>`;
-
-        // 3) Row Count
-        html += `<div class="excel-box"><div class="excel-header">3) Row Count</div>`;
-        html += `<div class="excel-row small">Excel 1 Row Count: <span class="code">${rowCount1}</span></div>`;
-        html += `<div class="excel-row small">Excel 2 Row Count: <span class="code">${rowCount2}</span></div>`;
-        if (rowCount1 === rowCount2) {
-            html += `<div class="excel-row ok"><span class="icon">✔️</span>Row Count: MATCHING</div>`;
-        } else {
-            html += `<div class="excel-row fail"><span class="icon">❌</span>Row Count: NOT MATCHING</div>`;
-        }
-        html += `</div>`;
-
-        // 4) Number Format Check
-        html += `<div class="excel-box"><div class="excel-header">4) Number Format Check</div>`;
-
-        let formatProblems = [];
-        for (let c = 0; c < maxCols; c++) {
-            const sample1 = sampleColumnValue(arr1, headerIdx1, c);
-            const sample2 = sampleColumnValue(arr2, headerIdx2, c);
-
-            if (sample1 !== null && sample2 !== null && isNumberLike(sample1) && isNumberLike(sample2)) {
-                const fmt1 = extractNumFormat(sample1);
-                const fmt2 = extractNumFormat(sample2);
-
-                if (fmt1.hasComma !== fmt2.hasComma ||
-                    fmt1.decimals !== fmt2.decimals ||
-                    String(fmt1.currency || "") !== String(fmt2.currency || "") ||
-                    fmt1.isPercent !== fmt2.isPercent) {
-
-                    const name1 = header1[c] || `(Col-${c+1})`;
-                    const name2 = header2[c] || `(Col-${c+1})`;
-
-                    formatProblems.push({
-                        pos: c+1,
-                        header1: name1,
-                        header2: name2,
-                        sample1, sample2,
-                        fmt1, fmt2
-                    });
-                }
-            }
-        }
-
-        if (formatProblems.length === 0) {
-            html += `<div class="excel-row ok small"><span class="icon">✔️</span>Number Formats: MATCHING (checked first available data samples)</div>`;
-        } else {
-            html += `<div class="excel-row fail small"><span class="icon">❌</span>Number Format differences found (${formatProblems.length})</div>`;
-            formatProblems.forEach(p => {
-                html += `<div class="excel-row small"><b>[Col-${p.pos}]</b> Excel1: <span class="code">${p.header1}</span> → <span class="code">${p.sample1}</span> | Excel2: <span class="code">${p.header2}</span> → <span class="code">${p.sample2}</span></div>`;
-                html += `<div class="excel-row small muted">Formats → Excel1: ${JSON.stringify(p.fmt1)} | Excel2: ${JSON.stringify(p.fmt2)}</div>`;
-            });
-        }
-
-        html += `</div>`;
-
-        // Headers preview
-        html += `<div class="excel-box"><div class="excel-header">Headers Preview (detected)</div>`;
-        html += `<div class="excel-row small"><b>Excel1 (row ${headerIdx1+1}):</b> <span class="cols">${header1.map((h,i)=>`[${i+1}] ${h||"(blank)"}`).join(" | ")}</span></div>`;
-        html += `<div class="excel-row small"><b>Excel2 (row ${headerIdx2+1}):</b> <span class="cols">${header2.map((h,i)=>`[${i+1}] ${h||"(blank)"}`).join(" | ")}</span></div>`;
-        html += `</div>`;
-
-        resultDiv.innerHTML = html;
-
-    } catch (err) {
-        document.getElementById("result").innerHTML = `<div class="excel-box"><div class="excel-header">Error</div><div class="excel-row small fail">${String(err)}</div></div>`;
-        console.error(err);
+    let html2 = '';
+    if(mismatch.length === 0){
+      html2 += makeRow(`<span class="badge-ok">✔️ Column Order: MATCHING</span>`);
+    } else {
+      html2 += makeRow(`<span class="badge-bad">❌ Column Order MISMATCHED</span>`);
+      html2 += makeRow(`<b>Differences (position-wise):</b>`, true);
+      mismatch.forEach(m => {
+        html2 += makeRow(`<b>[Col-${m.pos}]</b> Excel1 → <span class="mono">${m.a||"(blank)"}</span>  |  Excel2 → <span class="mono">${m.b||"(blank)"}</span>`, true);
+      });
+      // mapping where excel1 header exists in excel2
+      const map2 = {};
+      head2.forEach((nm, idx) => { if(nm) (map2[nm] = map2[nm] || []).push(idx+1); });
+      html2 += makeRow(`<span class="muted">Note: For Excel1 headers that differ by position, where they appear (if anywhere) in Excel2.</span>`, true);
+      mismatch.forEach(m => {
+        const found = (map2[m.a] || []).length ? (map2[m.a].join(', ')) : '(not present)';
+        html2 += makeRow(`Excel1 [Col-${m.pos}] <span class="mono">${m.a||"(blank)"}</span> → Excel2 positions: ${found}`, true);
+      });
     }
+    out.innerHTML += makeCard('2) Column Order', html2);
+
+    // 3) Row Count card
+    let html3 = '';
+    html3 += makeRow(`Excel 1 Row Count: <span class="mono">${rowsAfter1}</span>`);
+    html3 += makeRow(`Excel 2 Row Count: <span class="mono">${rowsAfter2}</span>`);
+    html3 += makeRow(rowsAfter1 === rowsAfter2 ? `<span class="badge-ok">✔️ Row Count: MATCHING</span>` : `<span class="badge-bad">❌ Row Count: NOT MATCHING</span>`);
+    out.innerHTML += makeCard('3) Row Count', html3);
+
+    // 4) Number Format check
+    let fmtProblems = [];
+    for(let c=0;c<cols;c++){
+      const sample1 = sampleColumn(arr1, idx1, c);
+      const sample2 = sampleColumn(arr2, idx2, c);
+
+      if(sample1 !== null && sample2 !== null && looksNumeric(sample1) && looksNumeric(sample2)){
+        const f1 = extractNumFormat(sample1);
+        const f2 = extractNumFormat(sample2);
+        if(f1.hasComma !== f2.hasComma ||
+           f1.decimals !== f2.decimals ||
+           String(f1.currency || "") !== String(f2.currency || "") ||
+           f1.isPercent !== f2.isPercent){
+          fmtProblems.push({
+            pos:c+1,
+            header1: head1[c] || `(Col-${c+1})`,
+            header2: head2[c] || `(Col-${c+1})`,
+            sample1, sample2,
+            f1, f2
+          });
+        }
+      }
+    }
+
+    let html4 = '';
+    if(fmtProblems.length === 0){
+      html4 += makeRow(`<span class="badge-ok">✔️ Number Formats: MATCHING (checked first data samples)</span>`);
+    } else {
+      html4 += makeRow(`<span class="badge-bad">❌ Number Format differences (${fmtProblems.length})</span>`);
+      fmtProblems.forEach(p => {
+        html4 += makeRow(`<b>[Col-${p.pos}]</b> ${p.header1} → <span class="mono">${p.sample1}</span> | ${p.header2} → <span class="mono">${p.sample2}</span>`, true);
+        html4 += makeRow(`<span class="muted">Formats → Excel1:${JSON.stringify(p.f1)} | Excel2:${JSON.stringify(p.f2)}</span>`, true);
+      });
+    }
+    out.innerHTML += makeCard('4) Number Format Check', html4);
+
+    // Headers preview card
+    let preview = '';
+    preview += makeRow(`<b>Excel1 (row ${idx1+1}):</b> <span class="cols">${head1.map((h,i)=>`[${i+1}] ${h||"(blank)"}`).join(' | ')}</span>`, true);
+    preview += makeRow(`<b>Excel2 (row ${idx2+1}):</b> <span class="cols">${head2.map((h,i)=>`[${i+1}] ${h||"(blank)"}`).join(' | ')}</span>`, true);
+    out.innerHTML += makeCard('Headers Preview (detected)', preview);
+
+    // final note
+    out.innerHTML += `<div class="note">Tip: If headers are still incorrect for a specific file, open that Excel and remove any top title/empty rows or re-save first sheet so headers are at the top. This page uses an intelligent auto-detect that handles most exports (pivot, splashbi, etc.).</div>`;
+
+  } catch(err){
+    out.innerHTML = `<div class="card"><div class="card-header">Error</div><div class="card-row small"><span class="badge-bad">Error:</span> ${String(err)}</div></div>`;
+    console.error(err);
+  }
 }
 </script>
 </body>
