@@ -1,213 +1,218 @@
 <!DOCTYPE html>
-<html>
+<html lang="en">
 <head>
-    <title>Excel Compare Tool – Excel Green</title>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>Excel Compare — Excel Green123</title>
 
-    <!-- XLSX LIB -->
-    <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
+<!-- Excel Green Theme -->
+<style>
+    body {
+        font-family: Calibri, sans-serif;
+        background: #f1f7ed;
+        margin: 0;
+        padding: 0;
+    }
 
-    <style>
-        body {
-            font-family: Calibri, Arial, sans-serif;
-            background: #f2f8f2;
-            margin: 0;
-            padding: 20px;
-        }
+    .title {
+        background: #1d6f42;
+        color: white;
+        padding: 18px;
+        font-size: 28px;
+        font-weight: bold;
+        text-align: center;
+        border-bottom: 5px solid #14522f;
+    }
 
-        h2 {
-            background: #1f6e43;
-            padding: 12px;
-            color: white;
-            border-radius: 6px;
-            width: fit-content;
-        }
+    .container {
+        padding: 20px;
+        max-width: 1100px;
+        margin: auto;
+    }
 
-        .box {
-            background: white;
-            padding: 15px;
-            border-radius: 8px;
-            margin-bottom: 20px;
-            border-left: 6px solid #1f6e43;
-            box-shadow: 0 0 8px rgba(0,0,0,0.1);
-            width: 600px;
-        }
+    .section {
+        background: white;
+        border-left: 6px solid #1d6f42;
+        border-radius: 6px;
+        padding: 20px;
+        margin-bottom: 20px;
+        box-shadow: 0 0 8px rgba(0, 0, 0, 0.12);
+    }
 
-        .section-title {
-            background: #1f6e43;
-            color: white;
-            padding: 8px;
-            border-radius: 5px;
-            margin-bottom: 10px;
-            font-weight: bold;
-        }
+    .btn {
+        background: #1d6f42;
+        color: white;
+        border: none;
+        padding: 10px 18px;
+        cursor: pointer;
+        font-size: 16px;
+        border-radius: 5px;
+        font-weight: bold;
+    }
 
-        button {
-            background: #1f6e43;
-            color: white;
-            padding: 10px 18px;
-            border: none;
-            border-radius: 6px;
-            cursor: pointer;
-            font-size: 15px;
-            margin-top: 5px;
-        }
-        button:hover { background: #145c35; }
+    .btn:hover {
+        background: #14522f;
+    }
 
-        .partition {
-            background: #e8f5e9;
-            padding: 12px;
-            border-radius: 5px;
-            border: 1px solid #b7d8c5;
-            margin-top: 10px;
-        }
+    .output-box {
+        background: #ffffff;
+        padding: 18px;
+        border-radius: 6px;
+        border-left: 6px solid #1d6f42;
+        box-shadow: 0 0 6px rgba(0, 0, 0, 0.10);
+        margin-top: 20px;
+    }
 
-        .mismatch { color: red; font-weight: bold; }
-        .match { color: green; font-weight: bold; }
+    /* Excel table look */
+    .excel-table {
+        border-collapse: collapse;
+        width: 80%;
+        margin-top: 10px;
+        margin-bottom: 10px;
+        font-size: 14px;
+    }
+    .excel-table th {
+        background: #e2efd9;
+        padding: 6px;
+        border: 1px solid #b7d4a8;
+        font-weight: bold;
+        color: #1d6f42;
+    }
+    .excel-table td {
+        padding: 6px;
+        border: 1px solid #d9e8d0;
+    }
 
-        pre {
-            white-space: pre-wrap;
-            font-family: Consolas, monospace;
-            background: #fff;
-            padding: 12px;
-            border-radius: 6px;
-            border: 1px solid #c3e6cb;
-        }
-    </style>
+    .success { color: #1a7f37; font-weight: bold; }
+    .error { color: #b30000; font-weight: bold; }
+    .point-title { font-size: 20px; font-weight: bold; margin-top: 20px; }
+
+</style>
+
 </head>
-
 <body>
 
-<h2>Excel Compare — Excel Green</h2>
+<div class="title">Excel Compare — Excel Green</div>
 
-<div class="box">
-    <label><b>Upload Excel 1:</b></label><br>
-    <input type="file" id="file1" accept=".xlsx,.xls"><br><br>
+<div class="container">
 
-    <label><b>Upload Excel 2:</b></label><br>
-    <input type="file" id="file2" accept=".xlsx,.xls"><br><br>
+    <div class="section">
+        <h3>Upload Excel 1:</h3>
+        <input type="file" id="file1" accept=".xlsx" /><br><br>
 
-    <button onclick="compareExcel()">Compare Now</button>
+        <h3>Upload Excel 2:</h3>
+        <input type="file" id="file2" accept=".xlsx" /><br><br>
+
+        <button class="btn" onclick="compareExcels()">Compare Now</button>
+    </div>
+
+    <div id="output" class="output-box"></div>
+
 </div>
 
-<div class="box">
-    <div class="section-title">Comparison Output</div>
-    <pre id="output">Upload files and click Compare.</pre>
-</div>
+<!-- SheetJS -->
+<script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.17.5/xlsx.full.min.js"></script>
 
 <script>
-function readExcel(file) {
-    return new Promise((resolve) => {
-        const reader = new FileReader();
-        reader.onload = (e) => {
-            const data = new Uint8Array(e.target.result);
-            const workbook = XLSX.read(data, { type: "array" });
-            const sheet = workbook.Sheets[workbook.SheetNames[0]];
-            resolve(XLSX.utils.sheet_to_json(sheet, { header: 1 }));
-        };
-        reader.readAsArrayBuffer(file);
-    });
+
+function detectHeaderRow(sheet) {
+    let json = XLSX.utils.sheet_to_json(sheet, { header: 1 });
+
+    let row1 = json[0];
+    let row2 = json[1];
+
+    // check if row1 is SPLASHBI: C01, C02, C03
+    let splashPattern = row1.every(col => /^C\d{2}$/.test(col));
+
+    if (splashPattern) {
+        return 2; // real header is row 2
+    }
+
+    return 1; // normal excel header
 }
 
-async function compareExcel() {
+function loadExcelHeaders(file, callback) {
+    let reader = new FileReader();
+    reader.onload = function(e) {
+        let data = new Uint8Array(e.target.result);
+        let workbook = XLSX.read(data, { type: "array" });
 
-    const f1 = document.getElementById("file1").files[0];
-    const f2 = document.getElementById("file2").files[0];
+        let sheet = workbook.Sheets[workbook.SheetNames[0]];
+        let allRows = XLSX.utils.sheet_to_json(sheet, { header: 1 });
+
+        let detectedRow = detectHeaderRow(sheet);
+
+        callback({
+            headerRowIndex: detectedRow,
+            headers: allRows[detectedRow - 1],
+            rowCount: allRows.length - detectedRow
+        });
+    };
+    reader.readAsArrayBuffer(file);
+}
+
+function compareExcels() {
+    let f1 = document.getElementById("file1").files[0];
+    let f2 = document.getElementById("file2").files[0];
 
     if (!f1 || !f2) {
-        alert("Please upload both files!");
+        alert("Please upload both Excel files");
         return;
     }
 
-    let d1 = await readExcel(f1);
-    let d2 = await readExcel(f2);
+    loadExcelHeaders(f1, excel1 => {
+        loadExcelHeaders(f2, excel2 => {
 
-    // 🔥 ALWAYS take row-1 as column headers
-    let col1 = d1[0] || [];
-    let col2 = d2[0] || [];
+            let out = "";
 
-    let rows1 = d1.length - 1;
-    let rows2 = d2.length - 1;
+            out += `<div class='point-title'>1) Column Count</div>
+                <table class='excel-table'>
+                    <tr><th>Excel 1 Column Count</th><td>${excel1.headers.length}</td></tr>
+                    <tr><th>Excel 2 Column Count</th><td>${excel2.headers.length}</td></tr>
+                    <tr><th>Detected Header Row</th><td>Excel1 → ${excel1.headerRowIndex}, Excel2 → ${excel2.headerRowIndex}</td></tr>
+                </table>`;
 
-    let out = "";
+            // Column Order
+            let colMismatch = false;
+            let diffHtml = "";
 
-    // ================================
-    // 1) COLUMN COUNT
-    // ================================
-    out += "1) Column Count\n";
-    out += "📌 Excel 1 Column Count: " + col1.length + "\n";
-    out += "📌 Excel 2 Column Count: " + col2.length + "\n";
-    out += "--------------------------------------------\n\n";
+            for (let i = 0; i < Math.max(excel1.headers.length, excel2.headers.length); i++) {
+                if ((excel1.headers[i] || "").trim() !== (excel2.headers[i] || "").trim()) {
+                    colMismatch = true;
+                    diffHtml += `
+                        <tr>
+                            <td>[Col-${i+1}]</td>
+                            <td>${excel1.headers[i] || "—"}</td>
+                            <td>${excel2.headers[i] || "—"}</td>
+                        </tr>`;
+                }
+            }
 
-    // ================================
-    // 2) COLUMN ORDER
-    // ================================
-    out += "2) Column Order\n";
+            out += `<div class='point-title'>2) Column Order</div>`;
 
-    let mismatches = [];
-    let max = Math.max(col1.length, col2.length);
+            if (!colMismatch) {
+                out += `<div class='success'>✔ Column Order MATCHED</div>`;
+            } else {
+                out += `<div class='error'>❌ Column Order MISMATCHED</div>`;
+                out += `
+                    <table class='excel-table'>
+                        <tr><th>Column</th><th>Excel 1</th><th>Excel 2</th></tr>
+                        ${diffHtml}
+                    </table>`;
+            }
 
-    for (let i = 0; i < max; i++) {
-        if ((col1[i] || "").trim() !== (col2[i] || "").trim()) {
-            mismatches.push(
-                `[Col-${i+1}] Excel1 → ${col1[i] || "(blank)"} | Excel2 → ${col2[i] || "(blank)"}`
-            );
-        }
-    }
+            // Row Count
+            out += `<div class='point-title'>3) Row Count</div>
+                <table class='excel-table'>
+                    <tr><th>Excel 1 Row Count</th><td>${excel1.rowCount}</td></tr>
+                    <tr><th>Excel 2 Row Count</th><td>${excel2.rowCount}</td></tr>
+                </table>`;
 
-    if (mismatches.length === 0) {
-        out += "✔ Column Order MATCHING\n\n";
-    } else {
-        out += "❌ Column Order MISMATCHED\n";
-        out += mismatches.join("\n") + "\n\n";
-    }
-
-    out += "--------------------------------------------\n\n";
-
-    // ================================
-    // 3) ROW COUNT
-    // ================================
-    out += "3) Row Count\n";
-    out += `📌 Excel 1 Row Count: ${rows1}\n`;
-    out += `📌 Excel 2 Row Count: ${rows2}\n`;
-
-    if (rows1 === rows2) {
-        out += "✔ Row Count MATCHING\n\n";
-    } else {
-        out += "❌ Row Count NOT MATCHING\n\n";
-    }
-
-    out += "--------------------------------------------\n\n";
-
-    // ================================
-    // 4) NUMBER FORMAT CHECK
-    // ================================
-    out += "4) Number Format Check\n";
-
-    let numberIssues = [];
-
-    for (let i = 0; i < col1.length; i++) {
-        let v1 = d1[1]?.[i];
-        let v2 = d2[1]?.[i];
-
-        let isNum1 = !isNaN(parseFloat(v1));
-        let isNum2 = !isNaN(parseFloat(v2));
-
-        if (isNum1 !== isNum2) {
-            numberIssues.push(
-                `[Col-${i+1}] Number Format Difference → Excel1: ${v1} | Excel2: ${v2}`
-            );
-        }
-    }
-
-    if (numberIssues.length === 0) {
-        out += "✔ Number formats matching\n";
-    } else {
-        out += "❌ Number format mismatches found:\n";
-        out += numberIssues.join("\n") + "\n";
-    }
-
-    document.getElementById("output").textContent = out;
+            document.getElementById("output").innerHTML = out;
+        });
+    });
 }
+
 </script>
 
 </body>
