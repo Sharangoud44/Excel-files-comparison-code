@@ -2,26 +2,41 @@
 <html lang="en">
 <head>
 <meta charset="UTF-8">
-<meta name="viewport" content="width=device-width,initial-scale=1.0">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>Excel Compare — Excel Green</title>
 
 <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
 
 <style>
-body{font-family:Calibri,Arial;background:#f2f8f2;padding:24px}
-h1{background:#1f6e43;color:#fff;padding:12px 18px;border-radius:6px;width:fit-content}
-.box{background:#fff;border-left:6px solid #1f6e43;border-radius:8px;padding:16px;margin:20px 0;
-     box-shadow:0 0 8px rgba(0,0,0,.1);max-width:900px}
-button{background:#1f6e43;color:#fff;border:none;border-radius:5px;padding:9px 16px;font-size:15px;cursor:pointer}
-button:hover{background:#145c35}
-pre{white-space:pre-wrap;font-family:Consolas;background:#fff;border:1px solid #cde2cc;
-     padding:12px;border-radius:6px;max-width:900px}
+body { font-family: Calibri, Arial; background:#eef8ee; padding:25px; }
+h1  { background:#1f6e43; color:white; padding:12px 20px; border-radius:6px; width:fit-content; }
+
+.box{
+  background:white; border-left:6px solid #1f6e43;
+  padding:18px; margin-top:20px; border-radius:8px;
+  max-width:900px; box-shadow:0 0 8px rgba(0,0,0,.1);
+}
+
+button{
+  background:#1f6e43; color:white; padding:10px 18px;
+  border:none; border-radius:6px; cursor:pointer; font-size:16px;
+}
+button:hover{ background:#145c35; }
+
+pre{
+  background:white; padding:15px; border-radius:8px;
+  border:1px solid #cfe6cf; max-width:900px; font-size:15px;
+  white-space:pre-wrap; font-family:Consolas,monospace;
+}
+
+.success{ color:#0a7d34; font-weight:bold; }
+.error  { color:#c80000; font-weight:bold; }
 </style>
 </head>
 
 <body>
 
-<h1>Excel Compare — Excel Green 2222</h1>
+<h1>Excel Compare — Excel Green 777777</h1>
 
 <div class="box">
   <b>Upload Excel 1:</b><br>
@@ -35,90 +50,83 @@ pre{white-space:pre-wrap;font-family:Consolas;background:#fff;border:1px solid #
 
 <pre id="out">Upload two Excel files and click Compare Now.</pre>
 
+
 <script>
-// Read Excel
-async function readFile(file){
-  return new Promise((resolve,reject)=>{
-    const reader=new FileReader();
-    reader.onload=e=>{
+/* ALWAYS USE FIRST ROW AS HEADER — FIXES SPLASHBI ISSUE 100% */
+function parseExcel(file){
+  return new Promise((resolve, reject)=>{
+    const reader = new FileReader();
+
+    reader.onload = e => {
       try{
-        const wb=XLSX.read(new Uint8Array(e.target.result),{type:"array"});
-        resolve(wb);
-      }catch(err){reject(err);}
+        const data = new Uint8Array(e.target.result);
+        const wb = XLSX.read(data, {type:"array"});
+
+        const sheet = wb.Sheets[wb.SheetNames[0]];
+        const arr   = XLSX.utils.sheet_to_json(sheet, {header:1});
+
+        const headers = (arr[0] || []).map(h => String(h||"").trim());
+        const rows    = arr.length - 1;
+
+        resolve({ headers, rows });
+      }
+      catch(err){ reject(err); }
     };
+
+    reader.onerror = reject;
     reader.readAsArrayBuffer(file);
   });
 }
 
-// Always take row-1 as header (100% reliable)
-function getHeaders(sheet){
-  const arr=XLSX.utils.sheet_to_json(sheet,{header:1}); 
-  let hdr=arr[0] || [];
 
-  // CLEAN headers: convert everything to string
-  hdr = hdr.map(h => (h==null ? "" : String(h).trim()));
-
-  return hdr;
-}
-
-// Count rows after header
-function getRowCount(sheet){
-  const arr=XLSX.utils.sheet_to_json(sheet,{header:1});
-  return arr.length - 1; 
-}
 
 async function compareExcels(){
-  const f1=document.getElementById("file1").files[0];
-  const f2=document.getElementById("file2").files[0];
-  const out=document.getElementById("out");
+  const f1 = document.getElementById("file1").files[0];
+  const f2 = document.getElementById("file2").files[0];
+  const out= document.getElementById("out");
 
   if(!f1 || !f2){
-    out.textContent="Please upload both Excel files.";
+    alert("Upload both Excel files.");
     return;
   }
 
-  out.textContent="Processing...";
+  out.textContent = "Processing...";
 
   try{
-    const wb1=await readFile(f1);
-    const wb2=await readFile(f2);
+    const ex1 = await parseExcel(f1);
+    const ex2 = await parseExcel(f2);
 
-    const s1=wb1.Sheets[wb1.SheetNames[0]];
-    const s2=wb2.Sheets[wb2.SheetNames[0]];
+    let text = "";
 
-    const h1=getHeaders(s1);
-    const h2=getHeaders(s2);
+    // 1) Column count
+    text += `1) Column Count\nExcel 1: ${ex1.headers.length}\nExcel 2: ${ex2.headers.length}\n\n`;
 
-    const r1=getRowCount(s1);
-    const r2=getRowCount(s2);
+    // 2) Column order
+    const max = Math.max(ex1.headers.length, ex2.headers.length);
+    const diffs = [];
 
-    let txt="";
-
-    // Column Count
-    txt += `1) Column Count\nExcel1: ${h1.length}\nExcel2: ${h2.length}\n\n`;
-
-    // Column Order
-    txt += `2) Column Order\n`;
-    let diff=[];
-
-    const max=Math.max(h1.length,h2.length);
-    for(let i=0;i<max;i++){
-      if((h1[i]||"") !== (h2[i]||"")){
-        diff.push(`[Col-${i+1}] Excel1 → ${h1[i]||"(blank)"} | Excel2 → ${h2[i]||"(blank)"}`);
+    for(let i=0; i<max; i++){
+      const a = ex1.headers[i] || "(blank)";
+      const b = ex2.headers[i] || "(blank)";
+      if(a !== b){
+        diffs.push(`[Col-${i+1}] Excel1 → ${a} | Excel2 → ${b}`);
       }
     }
 
-    if(diff.length===0) txt+="✔ MATCHED\n\n";
-    else txt+="❌ MISMATCHED\n"+diff.join("\n")+"\n\n";
+    if(diffs.length === 0){
+      text += "2) ✔ Column Order MATCHED\n\n";
+    } else {
+      text += "2) ❌ Column Order MISMATCHED\n" + diffs.join("\n") + "\n\n";
+    }
 
-    // Row Count
-    txt += `3) Row Count\nExcel1: ${r1}\nExcel2: ${r2}\n`;
-    txt += (r1===r2 ? "✔ MATCH\n" : "❌ NOT MATCH\n");
+    // 3) Row count
+    text += `3) Row Count\nExcel 1: ${ex1.rows}\nExcel 2: ${ex2.rows}\n`;
+    text += (ex1.rows === ex2.rows ? "✔ Rows MATCH\n" : "❌ Rows NOT MATCH\n");
 
-    out.textContent = txt;
-
-  }catch(err){
-    out.textContent="Error: "+err.message;
+    out.textContent = text;
+  }
+  catch(err){
+    out.textContent = "Error: " + err;
     console.error(err);
   }
 }
